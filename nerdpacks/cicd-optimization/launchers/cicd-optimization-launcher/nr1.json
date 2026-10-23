@@ -1,0 +1,7 @@
+{
+  "schemaType": "LAUNCHER",
+  "id": "cicd-optimization-launcher",
+  "displayName": "CI/CD Optimization",
+  "description": "Explore pipeline executions, failures and durations by repository",
+  "rootNerdletId": "cicd-explorer-nerdlet"
+}

@@ -1,0 +1,6 @@
+{
+  "schemaType": "NERDLET",
+  "id": "cicd-explorer-nerdlet",
+  "displayName": "CI/CD Optimization",
+  "description": "Pipeline executions, failures and median duration by repository"
+}

@@ -1,0 +1,200 @@
+$bg: #eef0f3;
+$panel: #f9fafb;
+$line: #d5dae1;
+$text: #1d252c;
+$muted: #5b6573;
+$blue: #2b66e0;
+$red: #d1343a;
+$green: #1f8a3d;
+$accent: #3b5bdb;
+
+.cicd {
+  min-height: 100vh;
+  padding: 16px 20px 32px;
+  background: $bg;
+  color: $text;
+  font-size: 14px;
+
+  button { font-family: inherit; }
+
+  .topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 14px;
+    .title { display: flex; align-items: center; font-size: 20px; font-weight: 600; }
+    .gitlab-logo { width: 28px; height: 28px; margin-right: 12px; flex: none; }
+    .badge {
+      margin-left: 8px;
+      padding: 2px 8px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      color: #6b46c1;
+      border: 1px solid #6b46c155;
+      border-radius: 10px;
+      text-transform: uppercase;
+    }
+  }
+
+  .btn {
+    padding: 6px 12px;
+    color: $text;
+    background: $panel;
+    border: 1px solid $line;
+    border-radius: 4px;
+    cursor: pointer;
+    &:hover:not(:disabled) { border-color: $muted; }
+    &:disabled { opacity: 0.4; cursor: default; }
+    &.small { padding: 2px 9px; margin-left: 6px; }
+  }
+
+  .controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 14px;
+    .ctl { display: flex; align-items: center; gap: 8px; }
+    .ctl-label { color: $muted; }
+    .search {
+      flex: 1 1 260px;
+      max-width: 420px;
+      padding: 7px 10px;
+      color: $text;
+      background: $panel;
+      border: 1px solid $line;
+      border-radius: 4px;
+      &:focus { outline: none; border-color: $accent; }
+    }
+  }
+
+  .seg {
+    display: inline-flex;
+    border: 1px solid $line;
+    border-radius: 4px;
+    overflow: hidden;
+    .seg-btn {
+      padding: 6px 12px;
+      color: $text;
+      background: $panel;
+      border: 0;
+      border-right: 1px solid $line;
+      cursor: pointer;
+      &:last-child { border-right: 0; }
+      &.active { color: $blue; background: #e3ebfd; }
+    }
+  }
+
+  .summary {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 14px;
+    .card {
+      display: flex;
+      flex-direction: column;
+      min-width: 140px;
+      padding: 10px 14px;
+      background: $panel;
+      border: 1px solid $line;
+      border-radius: 6px;
+    }
+    .card-label { color: $muted; font-size: 12px; }
+    .card-value { font-size: 24px; font-weight: 600; &.bad { color: $red; } }
+  }
+
+  .panel {
+    position: relative;
+    background: $panel;
+    border: 1px solid $line;
+    border-radius: 6px;
+  }
+
+  .panel-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 14px;
+    border-bottom: 1px solid $line;
+    .count { font-weight: 600; }
+    .pager { margin-left: 10px; }
+    .columns-wrap { position: relative; }
+    .columns-menu {
+      position: absolute;
+      right: 0;
+      top: 38px;
+      z-index: 5;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      min-width: 170px;
+      padding: 10px 12px;
+      background: $panel;
+      border: 1px solid $line;
+      border-radius: 4px;
+      label { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+    }
+  }
+
+  .loading, .error {
+    padding: 10px 14px;
+  }
+  .loading { color: $muted; }
+  .error { color: $red; }
+
+  table.grid {
+    width: 100%;
+    border-collapse: collapse;
+    &.dim { opacity: 0.45; }
+    th, td { padding: 8px 14px; border-bottom: 1px solid $line; text-align: left; }
+    th {
+      color: $text;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.03em;
+      white-space: nowrap;
+      &.right { text-align: right; }
+      &.sortable { cursor: pointer; user-select: none; }
+      &.group-title { text-align: center; border-left: 1px solid $line; }
+    }
+    .group-row th { border-bottom: 1px solid $line; padding: 10px 14px; }
+    .sort-ind { margin-left: 5px; color: $muted; font-size: 10px; &.on { color: $blue; } }
+    td.right { text-align: right; }
+    td.name { white-space: nowrap; }
+    td.empty { padding: 28px; text-align: center; color: $muted; }
+    tbody tr:hover { background: #eef2f8; }
+  }
+
+  .repo-icon { width: 18px; height: 18px; margin-right: 10px; vertical-align: -4px; }
+
+  .bar-cell {
+    min-width: 96px;
+    .bar-num { display: block; text-align: right; text-decoration: underline; text-decoration-color: $muted; text-underline-offset: 3px; }
+    .bar-track { height: 4px; margin-top: 3px; background: #e3e7ec; border-radius: 2px; }
+    .bar-fill { height: 100%; border-radius: 2px; &.blue { background: $blue; } &.red { background: $red; } }
+  }
+
+  .change {
+    white-space: nowrap;
+    font-weight: 600;
+    &.up { color: $red; }
+    &.down { color: $green; }
+    &.flat, &.none { color: $muted; }
+  }
+
+  // New Relic's global styles paint tables and inputs white; force the dark theme.
+  table.grid, table.grid thead, table.grid tbody, table.grid tr, table.grid th, table.grid td {
+    background: $panel !important;
+    color: $text !important;
+  }
+  table.grid tbody tr:hover, table.grid tbody tr:hover td { background: #eef2f8 !important; }
+  table.grid th.group-title, table.grid th.sortable { color: $text !important; }
+  table.grid td.empty { color: $muted !important; }
+  input.search, input.search[type='search'] {
+    background: $panel !important;
+    color: $text !important;
+    border: 1px solid $line !important;
+  }
+  input.search::placeholder { color: $muted; }
+}

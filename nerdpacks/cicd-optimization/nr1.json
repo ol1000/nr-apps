@@ -1,0 +1,6 @@
+{
+  "schemaType": "NERDPACK",
+  "displayName": "CI/CD Optimization",
+  "description": "Repository-level CI/CD explorer: pipeline executions, failures and median duration from GitLab OpenTelemetry spans",
+  "id": "8f9ade40-e915-4af1-bc67-6e5078820a84"
+}
