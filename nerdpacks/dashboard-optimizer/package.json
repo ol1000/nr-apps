@@ -1,0 +1,8 @@
+{
+  "name": "dashboard-optimizer",
+  "version": "0.1.1",
+  "private": true,
+  "description": "Finds dashboards that burn CCU and creates cheaper copies",
+  "scripts": { "start": "nr1 nerdpack:serve", "build": "nr1 nerdpack:build" },
+  "dependencies": { "prop-types": "^15.6.2", "react": "^16.6.3", "react-dom": "^16.6.3" }
+}

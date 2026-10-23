@@ -1,0 +1,6 @@
+{
+  "schemaType": "NERDLET",
+  "id": "dashboard-optimizer-nerdlet",
+  "displayName": "Dashboard Optimizer",
+  "description": "Dashboards ranked by CCU, with measured savings and an optimised copy"
+}

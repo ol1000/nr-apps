@@ -1,0 +1,6 @@
+{
+  "schemaType": "NERDPACK",
+  "displayName": "Dashboard Optimizer",
+  "description": "Finds dashboards that burn CCU, measures the saving from a shorter window, and creates a cheaper copy",
+  "id": "0e82318b-1755-4077-a129-1d948c1ab381"
+}

@@ -1,0 +1,7 @@
+{
+  "schemaType": "LAUNCHER",
+  "id": "dashboard-optimizer-launcher",
+  "displayName": "Dashboard Optimizer",
+  "description": "Find expensive dashboards and create cheaper copies",
+  "rootNerdletId": "dashboard-optimizer-nerdlet"
+}
