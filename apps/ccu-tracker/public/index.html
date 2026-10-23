@@ -1,0 +1,450 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CCU Tracker</title>
+<style>
+  :root {
+    color-scheme: light;
+    --surface: #fcfcfb; --surface-2: #f3f2ee; --text: #0b0b0b; --text-2: #52514e; --text-3: #7a7973;
+    --grid: #e1e0d9; --border: rgba(11,11,11,.10);
+    --ccu: #2a78d6; --accu: #4a3aa7; --system: #b9b8b0;
+    --good: #006300; --warn: #fab219; --warn-text: #8a5d00; --crit: #d03b3b;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:where(:not([data-theme="light"])) {
+      color-scheme: dark;
+      --surface: #1a1a19; --surface-2: #232321; --text: #fff; --text-2: #c3c2b7; --text-3: #8f8e85;
+      --grid: #2c2c2a; --border: rgba(255,255,255,.10);
+      --ccu: #3987e5; --accu: #9085e9; --system: #55544f;
+      --good: #0ca30c; --warn-text: #fab219; --crit: #e66767;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--surface); color: var(--text); font: 14px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 24px 20px 60px; }
+  header { display: flex; flex-wrap: wrap; gap: 12px 16px; align-items: center; margin-bottom: 20px; }
+  h1 { font-size: 20px; margin: 0; flex: 1 1 auto; }
+  h1 small { color: var(--text-3); font-weight: 400; font-size: 13px; margin-left: 8px; }
+  h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .04em; color: var(--text-2); margin: 0 0 10px; }
+  select, button, input { font: inherit; color: var(--text); background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 6px 10px; }
+  button { cursor: pointer; } button:hover { background: var(--surface-2); }
+  .seg { display: inline-flex; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+  .seg button { border: 0; border-radius: 0; background: transparent; padding: 6px 14px; }
+  .seg button[aria-pressed="true"] { background: var(--text); color: var(--surface); }
+  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; margin-bottom: 20px; }
+  .card { border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; background: var(--surface); }
+  .kpi .label { color: var(--text-2); font-size: 12px; }
+  .kpi .value { font-size: 26px; font-weight: 600; font-variant-numeric: tabular-nums; margin: 2px 0; }
+  .kpi .sub { color: var(--text-2); font-size: 12px; }
+  .up { color: var(--crit); } .down { color: var(--good); }
+  .legend { display: flex; gap: 16px; font-size: 12px; color: var(--text-2); margin-bottom: 8px; flex-wrap: wrap; }
+  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
+  .legend i.dash { height: 0; border-top: 2px dashed var(--crit); background: none; width: 16px; vertical-align: 3px; }
+  #history { width: 100%; height: 190px; display: block; }
+  .toolbar { display: flex; gap: 10px; align-items: center; margin-bottom: 10px; flex-wrap: wrap; }
+  .toolbar input { flex: 1 1 200px; max-width: 280px; }
+  .toolbar .spacer { flex: 1; }
+  table { width: 100%; border-collapse: collapse; }
+  th { text-align: left; font-weight: 500; font-size: 12px; color: var(--text-2); padding: 6px 8px; border-bottom: 1px solid var(--grid); white-space: nowrap; }
+  th.num, td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  td { padding: 7px 8px; border-bottom: 1px solid var(--grid); vertical-align: middle; }
+  tbody tr.user { cursor: default; } tbody tr.user:hover { background: var(--surface-2); }
+  td.rank { color: var(--text-3); width: 34px; font-variant-numeric: tabular-nums; }
+  td.who { max-width: 270px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  td.barcell { width: 32%; min-width: 180px; }
+  .bar { position: relative; height: 10px; background: var(--surface-2); border-radius: 0 4px 4px 0; }
+  .bar > span { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 0 4px 4px 0; background: var(--series); }
+  .bar > em { position: absolute; top: -3px; bottom: -3px; width: 0; border-left: 2px solid var(--text-2); }
+  .tag { font-size: 11px; padding: 1px 6px; border-radius: 10px; border: 1px solid currentColor; white-space: nowrap; }
+  .tag.over { color: var(--crit); } .tag.near { color: var(--warn-text); } .tag.pace { color: var(--warn-text); border-style: dashed; }
+  .system td { color: var(--text-2); background: var(--surface-2); }
+  .note { color: var(--text-3); font-size: 12px; margin-top: 14px; }
+  #tip { position: fixed; z-index: 10; pointer-events: none; background: var(--surface); border: 1px solid var(--border); box-shadow: 0 6px 24px rgba(0,0,0,.18); border-radius: 8px; padding: 10px 12px; width: 330px; display: none; font-size: 12px; }
+  #tip h3 { margin: 0 0 2px; font-size: 13px; word-break: break-all; }
+  #tip .tot { color: var(--text-2); margin-bottom: 8px; }
+  #tip .prow { display: grid; grid-template-columns: 138px 1fr 62px; gap: 6px; align-items: center; margin: 3px 0; }
+  #tip .prow span.n { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #tip .pbar { height: 8px; background: var(--surface-2); border-radius: 0 3px 3px 0; } #tip .pbar > div { height: 100%; background: var(--series); border-radius: 0 3px 3px 0; }
+  #tip .v { text-align: right; font-variant-numeric: tabular-nums; }
+  #tip .lb { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--grid); color: var(--text-2); }
+  dialog { border: 1px solid var(--border); border-radius: 10px; background: var(--surface); color: var(--text); padding: 20px; width: 400px; }
+  dialog::backdrop { background: rgba(0,0,0,.4); }
+  dialog label { display: grid; grid-template-columns: 1fr 120px; gap: 8px; align-items: center; margin: 8px 0; }
+  dialog p { color: var(--text-2); font-size: 12px; margin: 4px 0 12px; }
+  dialog menu { display: flex; justify-content: flex-end; gap: 8px; padding: 0; margin: 16px 0 0; }
+  .err { color: var(--crit); padding: 12px; }
+  .hidden { display: none; }
+</style>
+</head>
+<body>
+<div class="wrap" id="app">
+  <header>
+    <h1>CCU Tracker <small id="acct"></small></h1>
+    <select id="month" aria-label="Month"></select>
+    <div class="seg" role="group" aria-label="Metric">
+      <button data-m="core" aria-pressed="true">CCU</button>
+      <button data-m="adv" aria-pressed="false">aCCU</button>
+    </div>
+    <button id="budgetBtn">Budget…</button>
+    <button id="csv">Export CSV</button>
+    <button id="refresh" title="Drop cache and re-query New Relic">Refresh</button>
+  </header>
+
+  <div id="error" class="err hidden"></div>
+  <div class="kpis" id="kpis"></div>
+
+  <div class="card" style="margin-bottom:20px">
+    <h2>Monthly lookback — named users <span style="text-transform:none;letter-spacing:0;font-weight:400">— click a bar to open that month</span></h2>
+    <div class="legend" id="histLegend"></div>
+    <svg id="history" role="img" aria-label="Monthly usage"></svg>
+  </div>
+
+  <div class="card">
+    <div class="toolbar">
+      <h2 style="margin:0" id="tableTitle">Users</h2>
+      <input id="search" type="search" placeholder="Filter users…" aria-label="Filter users">
+      <span class="spacer"></span>
+      <label style="color:var(--text-2);font-size:12px"><input type="checkbox" id="hideZero" checked style="padding:0"> hide zero usage</label>
+    </div>
+    <table>
+      <thead><tr>
+        <th>#</th><th>User</th><th>Usage vs <span id="barRef">top user</span></th>
+        <th class="num">Used</th><th class="num">% budget</th><th class="num" id="projHead">Month-end pace</th>
+        <th class="num" id="deltaHead">vs last month</th><th>Daily</th>
+      </tr></thead>
+      <tbody id="rows"></tbody>
+    </table>
+    <div class="note" id="notes"></div>
+  </div>
+</div>
+
+<div id="tip"></div>
+
+<dialog id="budgetDlg">
+  <form method="dialog" id="budgetForm">
+    <h2 style="margin-bottom:4px">Monthly budgets</h2>
+    <p>Per-user budget applies to every user. Leave blank for no budget. Saved on this machine.</p>
+    <strong>CCU</strong>
+    <label>Per user <input name="core.perUser" type="number" min="0" step="any"></label>
+    <label>All users combined <input name="core.total" type="number" min="0" step="any"></label>
+    <strong>aCCU</strong>
+    <label>Per user <input name="adv.perUser" type="number" min="0" step="any"></label>
+    <label>All users combined <input name="adv.total" type="number" min="0" step="any"></label>
+    <menu><button value="cancel">Cancel</button><button value="save" id="saveBudget">Save</button></menu>
+  </form>
+</dialog>
+
+<script>
+const $ = (s) => document.querySelector(s);
+const el = (tag, attrs = {}, ...kids) => {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) k === 'class' ? (e.className = v) : e.setAttribute(k, v);
+  for (const k of kids) e.append(k);
+  return e;
+};
+const NS = 'http://www.w3.org/2000/svg';
+const svgEl = (tag, attrs = {}) => { const e = document.createElementNS(NS, tag); for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v); return e; };
+
+const state = { metric: 'core', month: null, config: null, data: null, history: null, userHist: {} };
+const LABEL = { core: 'CCU', adv: 'aCCU' };
+const SERIES = { core: 'var(--ccu)', adv: 'var(--accu)' };
+
+function fmt(n) {
+  if (n == null) return '–';
+  const a = Math.abs(n);
+  if (a >= 1000) return Math.round(n).toLocaleString();
+  if (a >= 100) return n.toFixed(0);
+  if (a >= 10) return n.toFixed(1);
+  if (a >= 1) return n.toFixed(2);
+  return a === 0 ? '0' : n.toFixed(3);
+}
+const monthLabel = (m) => new Date(m + '-01T00:00:00Z').toLocaleString('en', { month: 'short', year: 'numeric', timeZone: 'UTC' });
+const monthShort = (m) => new Date(m + '-01T00:00:00Z').toLocaleString('en', { month: 'short', timeZone: 'UTC' });
+const pctStr = (p) => (p * 100).toFixed(p < 0.1 ? 1 : 0) + '%';
+
+async function api(path, opts) {
+  const r = await fetch(path, opts);
+  const j = await r.json();
+  if (!r.ok) throw new Error(j.error || r.statusText);
+  return j;
+}
+
+// ---------- budgets ----------
+const budget = () => state.config.budget[state.metric];
+
+function status(total, projected, perUser, isCurrent) {
+  if (!perUser) return null;
+  if (total >= perUser) return 'over';
+  if (total >= perUser * 0.8) return 'near';
+  if (isCurrent && projected >= perUser) return 'pace';
+  return null;
+}
+const TAGS = { over: ['▲ over budget', 'over'], near: ['● 80%+ used', 'near'], pace: ['↗ on pace to exceed', 'pace'] };
+
+// ---------- render ----------
+function render() {
+  const d = state.data, side = d.metrics[state.metric], b = budget(), m = LABEL[state.metric];
+  $('#acct').textContent = `${state.config.accountName} · ${state.config.accountId}`;
+  $('#tableTitle').textContent = `${m} by user — ${monthLabel(d.month)}`;
+  $('#barRef').textContent = b.perUser ? `budget (${fmt(b.perUser)})` : 'top user';
+  $('#projHead').textContent = d.isCurrent ? 'Month-end pace' : 'Month total';
+  $('#deltaHead').textContent = d.isCurrent ? 'Pace vs last month' : 'vs prior month';
+  document.documentElement.style.setProperty('--series', SERIES[state.metric]);
+
+  renderKpis(d, side, b, m);
+  renderHistory();
+  renderRows(d, side, b);
+  const notes = [
+    `Per-user figures come from NrComputeUsage and exclude raw-unit compute types that are not CCU (Cloud Rule processing, New Relic AI Tokens, and pre-June-2026 Entity Lookups/Relationships/Writes and NRDB Queries on aCCU).`,
+    `Usage with no user attached (Synthetics, alert conditions, etc.) is shown separately as System / unattributed and never counts against a user's budget.`,
+    d.isCurrent ? `Month-end pace is a straight-line projection from ${d.daysElapsed.toFixed(1)} elapsed days; it is noisy early in the month and for spiky users.` : '',
+    d.truncated ? `⚠ Query hit the 5,000-row facet limit; some small rows are missing.` : '',
+  ].filter(Boolean);
+  $('#notes').replaceChildren(...notes.map((n) => el('div', {}, n)));
+}
+
+function renderKpis(d, side, b, m) {
+  const users = side.users.filter((u) => u.total > 0);
+  const total = side.attributed;
+  const delta = side.prevAttributed ? ((d.isCurrent ? side.projectedAttributed : total) - side.prevAttributed) / side.prevAttributed : null;
+  const top3 = users.slice(0, 3).reduce((s, u) => s + u.total, 0);
+  const over = b.perUser ? users.filter((u) => u.total >= b.perUser).length : null;
+  const pace = b.perUser && d.isCurrent ? users.filter((u) => u.total < b.perUser && u.projected >= b.perUser).length : null;
+  const cards = [
+    { label: `${m} used by users`, value: fmt(total), sub: b.total ? `${pctStr(total / b.total)} of ${fmt(b.total)} budget` : delta == null ? 'no prior month' : `${delta >= 0 ? '▲' : '▼'} ${pctStr(Math.abs(delta))} ${d.isCurrent ? 'pace ' : ''}vs ${monthShort(prevMonth(d.month))}`, cls: b.total && total >= b.total ? 'up' : '' },
+    { label: d.isCurrent ? 'Projected month-end' : 'Month total', value: fmt(side.projectedAttributed), sub: b.total ? (side.projectedAttributed > b.total ? '▲ projected over total budget' : 'within total budget') : `${users.length} active users`, cls: b.total && side.projectedAttributed > b.total ? 'up' : '' },
+    { label: 'Users over per-user budget', value: over == null ? '–' : String(over), sub: over == null ? 'set a budget to enable' : pace ? `+${pace} on pace to exceed` : `of ${users.length} active`, cls: over ? 'up' : '' },
+    { label: 'Top 3 share of user usage', value: total ? pctStr(top3 / total) : '–', sub: users[0] ? `Heaviest: ${users[0].email}` : '' },
+    { label: 'System / unattributed', value: fmt(side.unattributed), sub: 'no user on the usage record' },
+  ];
+  $('#kpis').replaceChildren(...cards.map((c) => {
+    const card = el('div', { class: 'card kpi' }, el('div', { class: 'label' }, c.label), el('div', { class: 'value' }, c.value), el('div', { class: 'sub ' + (c.cls || '') }, c.sub));
+    return card;
+  }));
+}
+const prevMonth = (m) => { const [y, mo] = m.split('-').map(Number); const d = new Date(Date.UTC(y, mo - 2, 1)); return d.toISOString().slice(0, 7); };
+
+function sparkline(vals, w = 110, h = 22) {
+  const s = svgEl('svg', { width: w, height: h, viewBox: `0 0 ${w} ${h}`, role: 'img', 'aria-label': 'daily usage' });
+  if (!vals.length) return s;
+  const max = Math.max(...vals, 1e-9), bw = w / vals.length;
+  vals.forEach((v, i) => {
+    const bh = Math.max(v > 0 ? 1.5 : 0, (v / max) * (h - 2));
+    s.append(svgEl('rect', { x: i * bw + 0.5, y: h - bh, width: Math.max(bw - 1.5, 1), height: bh, fill: SERIES[state.metric], rx: 1 }));
+  });
+  return s;
+}
+
+function renderRows(d, side, b) {
+  const q = $('#search').value.trim().toLowerCase(), hideZero = $('#hideZero').checked;
+  let users = side.users.filter((u) => (!hideZero || u.total > 0) && (!q || u.email.toLowerCase().includes(q)));
+  const ref = b.perUser || Math.max(...users.map((u) => u.total), 1e-9);
+  const rows = users.map((u, i) => {
+    const st = status(u.total, u.projected, b.perUser, d.isCurrent);
+    const pct = b.perUser ? u.total / b.perUser : null;
+    const delta = u.prevTotal ? ((d.isCurrent ? u.projected : u.total) - u.prevTotal) / u.prevTotal : null;
+    const tr = el('tr', { class: 'user' });
+    tr.append(
+      el('td', { class: 'rank' }, String(i + 1)),
+      el('td', { class: 'who' }, u.email),
+      (() => {
+        const td = el('td', { class: 'barcell' });
+        const bar = el('div', { class: 'bar' });
+        const span = el('span'); span.style.width = Math.min(u.total / ref, 1) * 100 + '%';
+        if (st === 'over') span.style.background = 'var(--crit)';
+        bar.append(span);
+        td.append(bar);
+        td.addEventListener('mousemove', (e) => showTip(e, u));
+        td.addEventListener('mouseleave', hideTip);
+        return td;
+      })(),
+      el('td', { class: 'num' }, fmt(u.total)),
+      (() => { const td = el('td', { class: 'num' }); if (pct != null) td.append(pctStr(pct), ' '); if (st) td.append(el('span', { class: 'tag ' + TAGS[st][1] }, TAGS[st][0])); return td; })(),
+      el('td', { class: 'num' }, fmt(u.projected)),
+      (() => {
+        const td = el('td', { class: 'num' });
+        if (delta == null) td.textContent = u.total > 0 ? 'new' : '–';
+        else { td.className += delta > 0 ? ' up' : ' down'; td.textContent = `${delta > 0 ? '▲' : '▼'} ${pctStr(Math.abs(delta))}`; }
+        return td;
+      })(),
+      el('td', {}, sparkline(u.daily)),
+    );
+    return tr;
+  });
+
+  const sys = d.metrics[state.metric + 'Unattributed'];
+  if (sys) {
+    const tr = el('tr', { class: 'user system' });
+    tr.append(el('td'), el('td', { class: 'who' }, 'System / unattributed'), el('td', { class: 'barcell' }, '(no user on record)'), el('td', { class: 'num' }, fmt(sys.total)), el('td'), el('td', { class: 'num' }, fmt(sys.projected)),
+      el('td', { class: 'num' }, sys.prevTotal ? `${sys.projected >= sys.prevTotal ? '▲' : '▼'} ${pctStr(Math.abs((sys.projected - sys.prevTotal) / sys.prevTotal))}` : '–'), el('td', {}, sparkline(sys.daily)));
+    const bc = tr.querySelector('.barcell');
+    bc.addEventListener('mousemove', (e) => showTip(e, { ...sys, email: 'System / unattributed' }));
+    bc.addEventListener('mouseleave', hideTip);
+    rows.push(tr);
+  }
+  $('#rows').replaceChildren(...(rows.length ? rows : [el('tr', {}, el('td', { colspan: '8', class: 'note' }, 'No users with usage this month.'))]));
+}
+
+// ---------- history chart ----------
+function renderHistory() {
+  const svg = $('#history'), side = state.metric, h = state.history.months;
+  const W = svg.clientWidth || 1000, H = 190, m = { l: 44, r: 10, t: 8, b: 22 };
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  svg.replaceChildren();
+  const b = budget();
+  const rows = h.map((r) => ({ month: r.month, a: r[side].attributed, u: r[side].unattributed, users: r[side].users }));
+  const max = Math.max(...rows.map((r) => r.a), b.total || 0, 1e-9) * 1.08;
+  const iw = W - m.l - m.r, ih = H - m.t - m.b, bw = iw / rows.length;
+  const y = (v) => m.t + ih - (v / max) * ih;
+
+  $('#histLegend').replaceChildren(
+    el('span', {}, ...[(() => { const i = el('i'); i.style.background = SERIES[side]; return i; })(), 'Named users']),
+    ...(b.total ? [el('span', {}, el('i', { class: 'dash' }), 'Total budget (users)')] : []),
+  );
+  for (let i = 0; i <= 4; i++) {
+    const v = (max / 1.08) * (i / 4), yy = y(v);
+    svg.append(svgEl('line', { x1: m.l, x2: W - m.r, y1: yy, y2: yy, stroke: 'var(--grid)', 'stroke-width': 1 }));
+    const t = svgEl('text', { x: m.l - 6, y: yy + 4, 'text-anchor': 'end', fill: 'var(--text-3)', 'font-size': 11 }); t.textContent = fmt(v); svg.append(t);
+  }
+  rows.forEach((r, i) => {
+    const x = m.l + i * bw + bw * 0.2, w = bw * 0.6, sel = r.month === state.month;
+    const g = svgEl('g', { style: 'cursor:pointer' });
+    g.append(svgEl('rect', { x: m.l + i * bw, y: m.t, width: bw, height: ih + m.b, fill: sel ? 'var(--surface-2)' : 'transparent' }));
+    const ha = (r.a / max) * ih;
+    if (ha > 0) g.append(svgEl('rect', { x, y: y(r.a), width: w, height: Math.max(ha, 1.5), fill: SERIES[side], rx: 3 }));
+    const t = svgEl('text', { x: x + w / 2, y: H - 6, 'text-anchor': 'middle', fill: sel ? 'var(--text)' : 'var(--text-2)', 'font-size': 11, 'font-weight': sel ? 600 : 400 });
+    t.textContent = monthShort(r.month); g.append(t);
+    g.addEventListener('click', () => selectMonth(r.month));
+    g.addEventListener('mousemove', (e) => showHistTip(e, r));
+    g.addEventListener('mouseleave', hideTip);
+    svg.append(g);
+  });
+  if (b.total) svg.append(svgEl('line', { x1: m.l, x2: W - m.r, y1: y(b.total), y2: y(b.total), stroke: 'var(--crit)', 'stroke-width': 2, 'stroke-dasharray': '5 4' }));
+}
+
+// ---------- tooltips ----------
+const tip = $('#tip');
+function placeTip(e) {
+  const pad = 14, w = tip.offsetWidth, h = tip.offsetHeight;
+  let x = e.clientX + pad, yy = e.clientY + pad;
+  if (x + w > innerWidth - 8) x = e.clientX - w - pad;
+  if (yy + h > innerHeight - 8) yy = innerHeight - h - 8;
+  tip.style.left = Math.max(8, x) + 'px'; tip.style.top = Math.max(8, yy) + 'px';
+}
+const hideTip = () => { tip.style.display = 'none'; tip.dataset.key = ''; };
+
+function showTip(e, u) {
+  const m = LABEL[state.metric], key = u.key + state.metric + state.month;
+  if (tip.dataset.key !== key) {
+    tip.dataset.key = key;
+    tip.style.setProperty('--series', SERIES[state.metric]);
+    const top = u.products.slice(0, 7), rest = u.products.slice(7).reduce((s, p) => s + p.value, 0);
+    if (rest > 0) top.push({ name: `${u.products.length - 7} other products`, value: rest });
+    const max = Math.max(...top.map((p) => p.value), 1e-9);
+    const box = el('div');
+    box.append(el('h3', {}, u.email), el('div', { class: 'tot' }, `${fmt(u.total)} ${m} in ${monthLabel(state.month)} — by product`));
+    if (!top.length) box.append(el('div', { class: 'tot' }, 'No usage this month.'));
+    for (const p of top) {
+      const bar = el('div', { class: 'pbar' }, el('div')); bar.firstChild.style.width = (p.value / max) * 100 + '%';
+      const n = el('span', { class: 'n', title: p.name }, p.name);
+      box.append(el('div', { class: 'prow' }, n, bar, el('span', { class: 'v' }, `${fmt(p.value)} · ${pctStr(p.value / u.total)}`)));
+    }
+    const lb = el('div', { class: 'lb' }, 'Loading lookback…'); box.append(lb);
+    tip.replaceChildren(box);
+    loadUserHistory(u.key).then((hist) => {
+      if (tip.dataset.key !== key) return;
+      lb.replaceChildren(`Last ${hist.months.length} months: `, lookbackSvg(hist.months.map((x) => x[state.metric]), hist.months.map((x) => x.month)));
+    }).catch(() => { lb.textContent = ''; });
+  }
+  tip.style.display = 'block';
+  placeTip(e);
+}
+
+function lookbackSvg(vals, months) {
+  const w = 300, h = 36, max = Math.max(...vals, 1e-9), bw = w / vals.length;
+  const s = svgEl('svg', { width: w, height: h + 12, viewBox: `0 0 ${w} ${h + 12}`, style: 'display:block;margin-top:4px' });
+  vals.forEach((v, i) => {
+    const bh = Math.max(v > 0 ? 1.5 : 0, (v / max) * (h - 12));
+    s.append(svgEl('rect', { x: i * bw + 4, y: h - bh, width: bw - 8, height: bh, fill: months[i] === state.month ? SERIES[state.metric] : 'var(--system)', rx: 2 }));
+    const t = svgEl('text', { x: i * bw + bw / 2, y: h - bh - 2, 'text-anchor': 'middle', fill: 'var(--text-2)', 'font-size': 9 }); if (v > 0) t.textContent = fmt(v); s.append(t);
+    const l = svgEl('text', { x: i * bw + bw / 2, y: h + 10, 'text-anchor': 'middle', fill: 'var(--text-3)', 'font-size': 9 }); l.textContent = monthShort(months[i]); s.append(l);
+  });
+  return s;
+}
+
+function showHistTip(e, r) {
+  tip.dataset.key = 'hist' + r.month + state.metric;
+  const m = LABEL[state.metric];
+  tip.replaceChildren(el('div', {}, el('h3', {}, monthLabel(r.month)),
+    el('div', { class: 'tot' }, `${fmt(r.a)} ${m} named users (${r.users} users)`),
+    el('div', { class: 'tot' }, `${fmt(r.u)} ${m} system / unattributed`)));
+  tip.style.display = 'block'; placeTip(e);
+}
+
+function loadUserHistory(key) {
+  return (state.userHist[key] ||= api('/api/user-history?key=' + encodeURIComponent(key)));
+}
+
+// ---------- actions ----------
+async function selectMonth(month) {
+  state.month = month;
+  $('#month').value = month;
+  hideTip();
+  try {
+    $('#error').classList.add('hidden');
+    state.data = await api('/api/month?month=' + month);
+    render();
+  } catch (e) { showError(e); }
+}
+function showError(e) { const n = $('#error'); n.textContent = 'Error: ' + e.message; n.classList.remove('hidden'); }
+
+function exportCsv() {
+  const d = state.data, side = d.metrics[state.metric], b = budget();
+  const q = (s) => `"${String(s).replace(/"/g, '""')}"`;
+  const lines = [['rank', 'user', LABEL[state.metric], 'budget', 'pct_of_budget', 'projected_month_end', 'prev_month', ...[...new Set(side.users.flatMap((u) => u.products.map((p) => p.name)))].map((n) => 'product: ' + n)]];
+  const products = lines[0].slice(7).map((h) => h.slice(9));
+  side.users.forEach((u, i) => lines.push([i + 1, u.email, u.total, b.perUser ?? '', b.perUser ? (u.total / b.perUser).toFixed(4) : '', u.projected, u.prevTotal, ...products.map((p) => u.products.find((x) => x.name === p)?.value ?? 0)]));
+  const blob = new Blob([lines.map((r) => r.map((c) => (typeof c === 'string' ? q(c) : c)).join(',')).join('\n')], { type: 'text/csv' });
+  const a = el('a', { href: URL.createObjectURL(blob), download: `${LABEL[state.metric]}-${d.month}.csv` }); a.click();
+}
+
+async function init() {
+  try {
+    state.config = await api('/api/config');
+    state.month = state.config.currentMonth;
+    state.history = await api('/api/history');
+    $('#month').replaceChildren(...state.history.months.slice().reverse().map((r) => el('option', { value: r.month }, monthLabel(r.month))));
+    $('#month').value = state.month;
+    await selectMonth(state.month);
+  } catch (e) { showError(e); }
+}
+
+$('#month').addEventListener('change', (e) => selectMonth(e.target.value));
+document.querySelectorAll('.seg button').forEach((b) => b.addEventListener('click', () => {
+  state.metric = b.dataset.m;
+  document.querySelectorAll('.seg button').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+  render();
+}));
+$('#search').addEventListener('input', () => state.data && renderRows(state.data, state.data.metrics[state.metric], budget()));
+$('#hideZero').addEventListener('change', () => state.data && renderRows(state.data, state.data.metrics[state.metric], budget()));
+$('#csv').addEventListener('click', exportCsv);
+$('#refresh').addEventListener('click', async () => { await api('/api/refresh', { method: 'POST' }); state.userHist = {}; init(); });
+addEventListener('resize', () => state.history && renderHistory());
+
+$('#budgetBtn').addEventListener('click', () => {
+  for (const side of ['core', 'adv']) for (const f of ['perUser', 'total']) $(`[name="${side}.${f}"]`).value = state.config.budget[side][f] ?? '';
+  $('#budgetDlg').showModal();
+});
+$('#budgetForm').addEventListener('submit', async (e) => {
+  if (e.submitter?.value !== 'save') return;
+  const body = {};
+  for (const side of ['core', 'adv']) { body[side] = {}; for (const f of ['perUser', 'total']) body[side][f] = $(`[name="${side}.${f}"]`).value; }
+  try { state.config.budget = await api('/api/budget', { method: 'PUT', body: JSON.stringify(body) }); render(); } catch (err) { showError(err); }
+});
+
+init();
+</script>
+</body>
+</html>
