@@ -1,0 +1,6 @@
+{
+  "schemaType": "NERDLET",
+  "id": "ingest-monitor-nerdlet",
+  "displayName": "Ingest Monitor",
+  "description": "Ingest by account with anomaly highlighting"
+}

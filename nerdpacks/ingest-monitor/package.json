@@ -1,0 +1,8 @@
+{
+  "name": "ingest-monitor",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Org-wide ingest monitor nerdpack",
+  "scripts": { "start": "nr1 nerdpack:serve", "build": "nr1 nerdpack:build" },
+  "dependencies": { "prop-types": "^15.6.2", "react": "^16.6.3", "react-dom": "^16.6.3" }
+}

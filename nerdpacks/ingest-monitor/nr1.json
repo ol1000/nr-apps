@@ -1,0 +1,6 @@
+{
+  "schemaType": "NERDPACK",
+  "displayName": "Ingest Monitor",
+  "description": "Data ingest for every account in the organisation, rate of change, and accounts ingesting above their expected level",
+  "id": "d5070913-b9f7-46ee-b1a3-7e270a85d0b8"
+}

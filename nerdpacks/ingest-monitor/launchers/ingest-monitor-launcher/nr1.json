@@ -1,0 +1,7 @@
+{
+  "schemaType": "LAUNCHER",
+  "id": "ingest-monitor-launcher",
+  "displayName": "Ingest Monitor",
+  "description": "Ingest by account, rate of change, and accounts above expected",
+  "rootNerdletId": "ingest-monitor-nerdlet"
+}
