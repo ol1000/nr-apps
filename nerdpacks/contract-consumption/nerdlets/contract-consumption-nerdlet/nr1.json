@@ -1,0 +1,6 @@
+{
+  "schemaType": "NERDLET",
+  "id": "contract-consumption-nerdlet",
+  "displayName": "Contract Consumption",
+  "description": "Consumption vs commitment"
+}

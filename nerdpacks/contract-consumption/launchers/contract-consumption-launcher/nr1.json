@@ -1,0 +1,7 @@
+{
+  "schemaType": "LAUNCHER",
+  "id": "contract-consumption-launcher",
+  "displayName": "Contract Consumption",
+  "description": "Consumption vs commitment by month and contract year",
+  "rootNerdletId": "contract-consumption-nerdlet"
+}
