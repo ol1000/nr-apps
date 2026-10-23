@@ -1,0 +1,7 @@
+{
+  "schemaType": "LAUNCHER",
+  "id": "ccu-tracker-launcher",
+  "displayName": "CCU Tracker",
+  "description": "CCU and aCCU usage per user, with budgets and lookback",
+  "rootNerdletId": "ccu-tracker-nerdlet"
+}

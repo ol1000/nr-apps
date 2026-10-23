@@ -1,0 +1,6 @@
+{
+  "schemaType": "NERDLET",
+  "id": "ccu-tracker-nerdlet",
+  "displayName": "CCU Tracker",
+  "description": "CCU and aCCU usage per user"
+}

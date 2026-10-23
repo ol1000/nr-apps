@@ -1,0 +1,6 @@
+{
+  "schemaType": "NERDPACK",
+  "displayName": "CCU Tracker",
+  "description": "CCU and aCCU usage per user by month, ranked heaviest first, with budgets, product breakdown on hover and a lookback",
+  "id": "e850a977-4252-4463-8ec0-465a7fa80e43"
+}

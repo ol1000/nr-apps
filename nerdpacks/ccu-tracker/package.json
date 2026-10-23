@@ -1,0 +1,8 @@
+{
+  "name": "ccu-tracker",
+  "version": "0.4.0",
+  "private": true,
+  "description": "Per-user CCU / aCCU tracker nerdpack",
+  "scripts": { "start": "nr1 nerdpack:serve", "build": "nr1 nerdpack:build" },
+  "dependencies": { "prop-types": "^15.6.2", "react": "^16.6.3", "react-dom": "^16.6.3" }
+}
