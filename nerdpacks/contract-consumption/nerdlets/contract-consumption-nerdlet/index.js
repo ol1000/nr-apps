@@ -16,9 +16,14 @@ function mergeConfig(saved, now) {
   const out = { ...d, ...saved };
   out.metrics = Object.fromEntries(METRICS.map(m => [m.key, { ...d.metrics[m.key], ...((saved.metrics || {})[m.key] || {}) }]));
   out.rates = Object.fromEntries(METRICS.map(m => [m.key, { ...d.rates[m.key], ...((saved.rates || {})[m.key] || {}) }]));
-  // the deal value is calculated from the minimums; only the top-up amount and currency are stored
+  // the deal value is calculated from the minimums; the top-up, currency and (Advantage) yearly budgets are stored
   const old = saved.savings || {};
-  out.deal = { currency: (saved.deal && saved.deal.currency) || old.currency || d.deal.currency, topUp: saved.deal && saved.deal.topUp !== undefined ? saved.deal.topUp : old.buffer !== undefined ? old.buffer : '' };
+  out.deal = {
+    currency: (saved.deal && saved.deal.currency) || old.currency || d.deal.currency,
+    topUp: saved.deal && saved.deal.topUp !== undefined ? saved.deal.topUp : old.buffer !== undefined ? old.buffer : '',
+    budgets: (saved.deal && saved.deal.budgets) || [],
+    rollover: !!(saved.deal && saved.deal.rollover)
+  };
   delete out.savings;
   out.overrides = saved.overrides || {};
   return out;

@@ -3,7 +3,15 @@
 export const TIPS = {
   plan: {
     volume: 'Volume Plan: you commit to a minimum volume per metric every month (users, data GB, Core CCU, aCCU). The deal value is calculated from those minimums. Usage above a minimum is overage, billed that month at the overage rate; an optional prepaid top-up is applied as credit against those bills.',
-    savings: 'Savings Plan: the same minimum volumes per metric every month. The deal value is calculated from them and drawn down by the minimums each month. Usage above a minimum is overage: it draws on the prepaid top-up first, then is billed pay-as-you-go.'
+    savings: 'Savings Plan: the same minimum volumes per metric every month. The deal value is calculated from them and drawn down by the minimums each month. Usage above a minimum is overage: it draws on the prepaid top-up first, then is billed pay-as-you-go.',
+    advantage: 'Advantage Plan: one fungible budget for each contract year, with no per-metric minimums. Every unit of usage (users, data, Core CCU, aCCU) is valued at its plan rate and drawn from the same budget. When the year\'s budget is used up, further usage is billed pay-as-you-go.'
+  },
+  advantage: {
+    dealValue: 'The total of the yearly budgets over the term. Entered under Edit contract (a blank year keeps the previous year\'s budget).',
+    dealDrawn: 'Usage to date, valued at the plan rates across every tracked metric, including the month in progress. "Left" is the total budget minus this. The bar shows how much is drawn; the black tick shows how much of the term has passed.',
+    lapsed: 'Finished contract years only: the budget left unspent when the year ended. It lapses unless "Unspent budget rolls over" is ticked in Edit contract.',
+    pool: 'This contract year\'s budget minus the usage drawn from it so far (all metrics together: the budget is fungible). The run-out date projects the average spend of the last three finished months.',
+    overage: 'Usage beyond the year\'s budget, valued at the pay-as-you-go rate (the plan rate if none is entered). The projection continues the average spend of the last three finished months.'
   },
 
   // ---- the deal cards
@@ -16,6 +24,14 @@ export const TIPS = {
   },
   overageBill: 'For each month: units above the minimum x the overage rate (the plan rate if no overage rate is set). It is billed in that month and never netted against another month or another metric. "Covered by the top-up" is the prepaid credit applied; "invoiced" is the rest. The projection continues the average of the last three finished months.',
   invoiced: 'What has been invoiced so far: the monthly minimums (finished months plus the whole current month) plus the overage bills the top-up did not cover.',
+  statusAdvantage: {
+    nocommit: 'No yearly budget has been entered, so there is nothing to compare usage against.',
+    norates: 'A budget is set but the tracked metrics have no plan rate, so usage cannot be valued in money. Units are still shown.',
+    ontrack: 'Usage is drawing the budget down at a pace that lasts to the end of each contract year.',
+    under: 'More than 10% of the budget of finished years was left unspent and lapsed.',
+    depletes: 'At the recent spend rate a contract year\'s budget will be used up before the year ends.',
+    depleted: 'A contract year\'s budget has been used up. Further usage is billed pay-as-you-go.'
+  },
   missingRates: 'A metric with a monthly minimum but no plan rate cannot be valued in money, so it is left out of the deal value, the top-up and the overage figures. Enter its plan rate under Edit contract.',
 
   // ---- status chips
@@ -59,19 +75,24 @@ export const TIPS = {
     invoiced: 'The part of that month\'s overage bill the top-up did not cover: what is invoiced.',
     topUpLeft: 'Prepaid top-up remaining after that month.',
     payg: 'The part of the overage the top-up did not cover, billed pay-as-you-go at the PAYG rates (an estimate).',
-    dealLeft: 'Deal value minus all the minimums drawn up to and including that month.'
+    dealLeft: 'Deal value minus all the minimums drawn up to and including that month.',
+    spend: 'That month\'s usage valued at the plan rates, added up across the tracked metrics. Drawn from the contract year\'s budget.',
+    poolLeft: 'Budget left in the contract year after that month. It resets to the next year\'s budget at the start of each contract year.',
+    advOverage: 'Spend beyond the contract year\'s budget that month, billed at the pay-as-you-go rates (an estimate).'
   },
 
   // ---- setup panel
   setup: {
     term: 'The contract term. Months are shown as whole calendar months from the start month, and contract years run from that month. An end date on the anniversary of the start (or the day before) is a whole number of years.',
     topUp: 'A prepaid amount that covers overage (usage above a minimum). Leave it empty if there is none.',
+    budget: 'The Advantage budget for each contract year, in the contract currency. A later year left blank keeps the previous year\'s budget.',
+    rollover: 'When ticked, budget left at the end of a contract year is added to the next year\'s budget. Otherwise it lapses.',
     currency: 'Only used to label the money values.',
-    basis: 'Whether free usage counts towards the minimum: Total uses billable + free, Billable only uses just the billable part.',
+    basis: 'Whether free usage counts towards the minimum (or the Advantage budget): Total uses billable + free, Billable only uses just the billable part.',
     minimums: 'The minimum for each metric, per month. Users are a minimum number of users (monthly peak); data and CCU are the minimum consumed each month. Tick Track to include a metric. A later year left blank keeps the previous year\'s minimum.',
-    planRate: 'Price per unit the minimums are valued at (users: per user per month). The deal value is minimum x this rate. Savings Plan overage draws on the top-up at this rate.',
+    planRate: 'Price per unit the minimums are valued at (users: per user per month). The deal value is minimum x this rate. Savings Plan overage draws on the top-up at this rate. Advantage usage is valued at this rate.',
     overRate: 'Price per unit of usage above the minimum. Leave blank to use the plan rate.',
-    paygRate: 'Price per unit once the top-up is used up. Leave blank to use the plan rate.',
+    paygRate: 'Price per unit once the top-up (Savings) or the year\'s budget (Advantage) is used up. Leave blank to use the plan rate.',
     manual: 'Months before New Relic\'s usage history starts have no recorded usage. Enter what you know here so they count towards the totals. Real usage always wins over a manual figure.'
   }
 };

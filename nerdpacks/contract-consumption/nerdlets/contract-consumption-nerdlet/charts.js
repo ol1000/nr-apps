@@ -5,7 +5,7 @@ const W = 760;
 const H = 230;
 const PAD = { l: 52, r: 16, t: 14, b: 32 };
 
-const COLORS = { actual: '#2b66e0', commit: '#7a8494', projected: '#e08a00', over: '#d1343a', grid: '#d5dae1', text: '#5b6573' };
+const COLORS = { actual: '#1f6fe5', commit: '#7a8494', projected: '#e08a00', over: '#c8362b', grid: '#e6e9ed', text: '#5b6670' };
 
 function Axes({ max, unit, months }) {
   const ticks = [0, 0.25, 0.5, 0.75, 1];
@@ -108,7 +108,7 @@ export default function Chart({ analysis, labels }) {
 const BW = 420;
 const BH = 190;
 const BP = { l: 40, r: 8, t: 10, b: 24 };
-export const BAR_COLORS = { within: '#2b66e0', below: '#e08a00', over: '#d1343a', line: '#1d252c' };
+export const BAR_COLORS = { within: '#1f6fe5', below: '#e08a00', over: '#c8362b', line: '#1d2329' };
 
 export function BarChart({ series, unit }) {
   const base = series[0].rows;
@@ -160,6 +160,14 @@ export function BarChart({ series, unit }) {
 }
 
 export function BarLegend({ multi, series, plan }) {
+  if (plan === 'advantage') {
+    return (
+      <div className="legend-row small">
+        {multi ? series.map(s => <span key={s.key}><i style={{ background: s.color }} /> {s.label}</span>) : <span><i style={{ background: BAR_COLORS.within }} /> Usage</span>}
+        <span>No minimums: usage draws on one shared budget</span>
+      </div>
+    );
+  }
   const above = plan === 'savings' ? 'Above minimum (top-up, then PAYG)' : 'Above (overage bill)';
   return (
     <div className="legend-row small">

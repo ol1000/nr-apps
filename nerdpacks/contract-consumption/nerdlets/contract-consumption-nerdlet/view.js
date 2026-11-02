@@ -9,8 +9,8 @@ import { formatNum, formatPct, formatDate, monthLabel } from './lib/format';
 
 // Light base palette: New Relic inverts nerdlet colours in its dark theme, so a light design follows the theme.
 // Inline colours: New Relic's global CSS paints tables/inputs and beats stylesheet rules.
-const CELL = { background: '#f9fafb', color: '#1d252c' };
-const HEAD = { background: '#eef0f3', color: '#1d252c' };
+const CELL = { background: '#ffffff', color: '#1d2329' };
+const HEAD = { background: '#f4f6f8', color: '#1d2329' };
 
 const METRIC_STATUS = {
   nocommit: { label: 'No minimum set', tone: 'idle' },
@@ -19,7 +19,18 @@ const METRIC_STATUS = {
   under: { label: 'Below the minimum', tone: 'warn' },
   over: { label: 'Above the minimum', tone: 'bad' }
 };
+const PLAN_LABEL = { volume: 'Volume Plan', savings: 'Savings Plan', advantage: 'Advantage Plan' };
 const dealStatus = d => {
+  if (d.plan === 'advantage') {
+    return ({
+      nocommit: { label: 'No budget set', tone: 'idle' },
+      norates: { label: 'Add plan rates', tone: 'idle' },
+      ontrack: { label: 'On track', tone: 'good' },
+      under: { label: 'Budget going unused', tone: 'warn' },
+      depletes: { label: 'Budget will run out', tone: 'bad' },
+      depleted: { label: 'Budget used up - usage billed pay-as-you-go', tone: 'bad' }
+    })[d.status];
+  }
   const billed = d.plan === 'savings' ? 'pay-as-you-go' : 'billed';
   return ({
     nocommit: { label: 'No minimums set', tone: 'idle' },
@@ -53,18 +64,19 @@ function Pace({ used, marker, tone, title }) {
   );
 }
 
-function MetricCard({ a, plan }) {
+function MetricCard({ a, plan, share }) {
   const d = a.def;
-  const st = METRIC_STATUS[a.status];
+  const st = plan === 'advantage' ? { label: 'Shared budget', tone: 'idle' } : METRIC_STATUS[a.status];
   const tone = st.tone === 'bad' ? 'bad' : st.tone === 'warn' ? 'warn' : 'good';
   const latestRow = [...a.rows].reverse().find(r => r.actual !== null);
   const latest = latestRow ? latestRow.actual : null;
   const when = latestRow && latestRow.state === 'current' ? 'this month so far' : 'last month';
   return (
     <div className="mcard">
-      <div className="mcard-top"><span className="mcard-title">{d.label}<InfoTip text={TIPS.metricCard} label={d.label} /></span><Chip s={st} tip={TIPS.metricStatus[a.status]} /></div>
+      <div className="mcard-top"><span className="mcard-title">{d.label}<InfoTip text={TIPS.metricCard} label={d.label} /></span><Chip s={st} tip={plan === 'advantage' ? TIPS.advantage.dealValue : TIPS.metricStatus[a.status]} /></div>
       <div className="mcard-big">{latest === null ? '-' : formatNum(latest, d.unit)} <small>{d.unit} {when}</small></div>
-      <div className="mcard-sub">{a.commitNow > 0 ? `Minimum ${formatNum(a.commitNow, d.unit)} per month` : 'No minimum set'}</div>
+      <div className="mcard-sub">{plan === 'advantage' ? 'No minimum - drawn from the shared budget' : a.commitNow > 0 ? `Minimum ${formatNum(a.commitNow, d.unit)} per month` : 'No minimum set'}</div>
+      {plan === 'advantage' && share !== undefined ? <div className="mcard-line">{formatPct(share)} of spend so far{d.kind === 'sum' && a.runRate > 0 ? ` - run-rate ${formatNum(a.runRate, d.unit)} per month` : ''}</div> : null}
       {d.kind === 'sum' && a.commitNow > 0 ? (
         <Pace used={a.runRatio === null ? null : a.runRatio * 100} marker={100} tone={tone}
           title={`Run-rate ${formatNum(a.runRate, d.unit)} per month against a minimum of ${formatNum(a.commitNow, d.unit)}`} />
@@ -90,6 +102,7 @@ function DealCards({ d }) {
       </div>
     );
   }
+  if (d.plan === 'advantage') return <AdvantageCards d={d} />;
   const st = dealStatus(d);
   const topUpTone = d.topUp > 0 && d.topUpLeft <= 0 ? 'bad' : d.projectedOver > d.topUp ? 'warn' : 'good';
   return (
@@ -152,6 +165,45 @@ function DealCards({ d }) {
   );
 }
 
+function AdvantageCards({ d }) {
+  const cur = d.currency;
+  const st = dealStatus(d);
+  const year = d.depletions.find(x => x.cy === (d.rows.find(r => r.state === 'current') || [...d.rows].reverse().find(r => r.state === 'past') || {}).cy);
+  const poolTone = d.poolNow !== null && d.poolNow <= 0 ? 'bad' : d.projectedOver > 0 ? 'warn' : 'good';
+  return (
+    <div className="cards">
+      <div className="mcard wide">
+        <div className="mcard-top"><span className="mcard-title">Deal value (total of the yearly budgets)<InfoTip text={TIPS.advantage.dealValue} label="deal value" /></span><Chip s={st} tip={TIPS.statusAdvantage[d.status]} /></div>
+        <div className="mcard-big">{money(cur, d.dealValue)}</div>
+        <div className="mcard-sub">{money(cur, d.spendToDate)} drawn by usage ({formatPct(d.dealPct)}) - {money(cur, Math.max(0, d.dealLeft))} left<InfoTip text={TIPS.advantage.dealDrawn} label="drawn and left" /></div>
+        {d.dealValue > 0 ? <Pace used={d.dealPct} marker={d.elapsedPct} tone="good" title={`${formatPct(d.dealPct)} of the deal value drawn; ${formatPct(d.elapsedPct)} of the term has passed`} /> : null}
+        <div className={d.unusedToDate > 0 ? 'mcard-line warnamt' : 'mcard-line'}>Of the budget of finished years, {money(cur, d.unusedToDate)} {d.rollover ? 'was left at the end of the term' : 'lapsed unspent'}<InfoTip text={TIPS.advantage.lapsed} label="unspent budget" /></div>
+      </div>
+      <div className="mcard wide">
+        <div className="mcard-top"><span className="mcard-title">Budget this contract year<InfoTip text={TIPS.advantage.pool} label="this year's budget" /></span></div>
+        <div className="mcard-big">{money(cur, d.poolNow === null ? d.budgetNow : d.poolNow)} <small>left of {money(cur, d.budgetNow)}</small></div>
+        <Pace used={d.poolNowPct === null ? 0 : 100 - d.poolNowPct} marker={d.yearElapsedPct} tone={poolTone} title={`${formatPct(d.poolNowPct === null ? 100 : 100 - d.poolNowPct)} of this year's budget used; ${formatPct(d.yearElapsedPct)} of the year has passed`} />
+        <div className="mcard-line">
+          Recent spend {money(cur, d.runSpend)} per month
+          {year ? (year.actual ? <> - budget used up {formatDate(year.date)}</> : <> - budget runs out ~{formatDate(year.date)}</>) : <> - lasts to the end of the contract year</>}
+        </div>
+      </div>
+      <div className="mcard wide">
+        <div className="mcard-top"><span className="mcard-title">Usage beyond the budget<InfoTip text={TIPS.advantage.overage} label="overage" /></span></div>
+        <div className={d.overToDate > 0 ? 'mcard-big bad' : 'mcard-big'}>{money(cur, d.overBilledToDate)} <small>pay-as-you-go so far</small></div>
+        <div className="mcard-sub">spend beyond a year's budget, billed at the pay-as-you-go rates</div>
+        <div className="mcard-line">Projected {money(cur, d.projectedOverCost)} by term end at the recent spend rate{d.depletions.length ? `; the budget runs out in ${d.depletions.length} of ${Math.ceil(d.rows.length / 12)} contract years` : ''}.</div>
+      </div>
+      {d.missingRates.length > 0 ? (
+        <div className="mcard warnbox">
+          <div className="mcard-title">No plan rate for: {d.missingRates.map(k => METRIC[k].short).join(', ')}<InfoTip text={TIPS.missingRates} label="missing plan rates" /></div>
+          <div className="mcard-line">These are left out of the budget draw-down until a rate is entered.</div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function ValueCell({ r, d }) {
   if (r.state === 'future') return <td style={CELL} className="num muted">-</td>;
   if (r.actual === null) return <td style={CELL} className="num missing" title="No usage history for this month. Enter it under Edit contract.">n/a</td>;
@@ -176,6 +228,7 @@ function VolumeGrid({ analyses, deal, groupBy }) {
   const showMoney = deal.tracked.length > 0;
   const cur = deal.currency;
   const volume = deal.plan === 'volume';
+  const adv = deal.plan === 'advantage';
   const dealGroups = [];
   deal.rows.forEach(r => {
     const id = groupBy === 'calendar' ? String(r.y) : `Contract year ${r.cy}`;
@@ -191,7 +244,14 @@ function VolumeGrid({ analyses, deal, groupBy }) {
         <tr style={HEAD}>
           <th style={HEAD}>MONTH<InfoTip text={TIPS.grid.month} label="month" /></th>
           {analyses.map(a => <th style={HEAD} key={a.def.key} className="r">{a.def.short.toUpperCase()} ({a.def.unit})<InfoTip text={TIPS.grid.metric} label={a.def.label} /></th>)}
-          {showMoney ? (
+          {showMoney && adv ? (
+            <>
+              <th style={HEAD} className="r">SPEND ({cur})<InfoTip text={TIPS.grid.spend} label="spend" /></th>
+              <th style={HEAD} className="r">BUDGET LEFT ({cur})<InfoTip text={TIPS.grid.poolLeft} label="budget left" /></th>
+              <th style={HEAD} className="r">PAYG OVER BUDGET ({cur})<InfoTip text={TIPS.grid.advOverage} label="overage" /></th>
+            </>
+          ) : null}
+          {showMoney && !adv ? (
             <>
               <th style={HEAD} className="r">MINIMUM ({cur})<InfoTip text={TIPS.grid.minimum} label="minimum" /></th>
               <th style={HEAD} className="r">{volume ? 'OVERAGE BILL' : 'OVERAGE'} ({cur})<InfoTip text={volume ? TIPS.grid.overageBill : TIPS.grid.overageSavings} label="overage" /></th>
@@ -219,7 +279,14 @@ function VolumeGrid({ analyses, deal, groupBy }) {
                   </td>
                 );
               })}
-              {showMoney ? (
+              {showMoney && adv ? (
+                <>
+                  <td style={HEAD} className="num"><b>{formatNum(sum(dealGroups[gi].rows, 'spend'))}</b></td>
+                  <td style={HEAD} className="num">{(() => { const d = lastDone(dealGroups[gi].rows); return d ? <b>{formatNum(d.poolLeft)}</b> : '-'; })()}</td>
+                  <td style={HEAD} className="num"><b>{formatNum(sum(dealGroups[gi].rows, 'overBilled'))}</b></td>
+                </>
+              ) : null}
+              {showMoney && !adv ? (
                 <>
                   <td style={HEAD} className="num"><b>{formatNum(sum(dealGroups[gi].rows, 'minimum'))}</b></td>
                   <td style={HEAD} className="num"><b>{formatNum(sum(dealGroups[gi].rows, 'over'))}</b></td>
@@ -239,7 +306,14 @@ function VolumeGrid({ analyses, deal, groupBy }) {
                 <tr key={r.key} style={CELL}>
                   <td style={CELL}>{monthLabel(r.key)}</td>
                   {analyses.map((a, ai) => <ValueCell key={a.def.key} r={grouped[ai][gi].rows[ri]} d={a.def} />)}
-                  {dr ? (
+                  {dr && adv ? (
+                    <>
+                      <td style={CELL} className={cls}>{f || dr.spend === null ? '-' : formatNum(dr.spend)}</td>
+                      <td style={CELL} className={cls}>{f ? '-' : formatNum(dr.poolLeft)}</td>
+                      <td style={CELL} className={f || dr.overBilled <= 0 ? cls : 'num bad'}>{f ? '-' : dr.overBilled > 0 ? <b>{formatNum(dr.overBilled)}</b> : '0'}</td>
+                    </>
+                  ) : null}
+                  {dr && !adv ? (
                     <>
                       <td style={CELL} className={cls}>{f ? '-' : formatNum(dr.minimum)}</td>
                       <td style={CELL} className={f || dr.over <= 0 ? cls : 'num warnamt'}>{f ? '-' : dr.over > 0 ? formatNum(dr.over) : '0'}</td>
@@ -260,20 +334,20 @@ function VolumeGrid({ analyses, deal, groupBy }) {
   );
 }
 
-const USER_COLORS = { users_full: '#7a4fd6', users_core: '#2b66e0', users_basic: '#1d9a8a' };
+const USER_COLORS = { users_full: '#7a4fd6', users_core: '#1f6fe5', users_basic: '#1d9a8a' };
 
 /** One small bar chart per tracked thing: Data, Users (one cluster per user type), CCU, aCCU. Untracked metrics get no chart. */
 function volumeTiles(shown) {
   const by = k => shown.find(a => a.def.key === k);
   const tiles = [];
   const data = by('data');
-  if (data) tiles.push({ id: 'data', title: 'Data ingest (GB per month)', unit: 'GB', series: [{ key: 'data', label: 'Data', color: '#2b66e0', rows: data.rows }] });
+  if (data) tiles.push({ id: 'data', title: 'Data ingest (GB per month)', unit: 'GB', series: [{ key: 'data', label: 'Data', color: '#1f6fe5', rows: data.rows }] });
   const users = shown.filter(a => a.def.group === 'users');
   if (users.length) tiles.push({ id: 'users', title: 'Users (monthly peak)', unit: 'users', multi: users.length > 1, series: users.map(a => ({ key: a.def.key, label: a.def.short, color: USER_COLORS[a.def.key], rows: a.rows })) });
   const core = by('ccu_core');
-  if (core) tiles.push({ id: 'ccu_core', title: 'Core CCU (per month)', unit: 'CCU', series: [{ key: 'ccu_core', label: 'Core CCU', color: '#2b66e0', rows: core.rows }] });
+  if (core) tiles.push({ id: 'ccu_core', title: 'Core CCU (per month)', unit: 'CCU', series: [{ key: 'ccu_core', label: 'Core CCU', color: '#1f6fe5', rows: core.rows }] });
   const adv = by('ccu_adv');
-  if (adv) tiles.push({ id: 'ccu_adv', title: 'Advanced CCU - aCCU (per month)', unit: 'aCCU', series: [{ key: 'ccu_adv', label: 'aCCU', color: '#2b66e0', rows: adv.rows }] });
+  if (adv) tiles.push({ id: 'ccu_adv', title: 'Advanced CCU - aCCU (per month)', unit: 'aCCU', series: [{ key: 'ccu_adv', label: 'aCCU', color: '#1f6fe5', rows: adv.rows }] });
   return tiles;
 }
 
@@ -291,7 +365,6 @@ export default function ContractView(p) {
     usageAccountId, onTab, onGroupBy, onToggleSetup, onDraft, onSave, onReset, onRefresh } = p;
 
   const shown = analyses.filter(a => tab === 'all' || a.def.group === tab);
-  const isSavings = plan === 'savings';
 
   return (
     <div className="contract">
@@ -299,8 +372,8 @@ export default function ContractView(p) {
         <div className="title">
           <img className="nr-logo" src={NR_LOGO} alt="New Relic" />
           <span className="sep" />
-          Contract Consumption
-          <span className="badge">{isSavings ? 'Savings Plan' : 'Volume Plan'}</span><InfoTip text={TIPS.plan[plan]} label="this plan" />
+          Contract<span className="accent">Consumption</span>
+          <span className="badge">{PLAN_LABEL[plan]}</span><InfoTip text={TIPS.plan[plan]} label="this plan" />
         </div>
         <div className="sub">
           <span>{cfg.name} - {monthLabel(cfg.termStart.slice(0, 7))} to {monthLabel(cfg.termEnd.slice(0, 7))}</span>
@@ -333,7 +406,7 @@ export default function ContractView(p) {
 
       <DealCards d={deal} />
       <div className="cards">
-        {shown.length ? shown.map(a => <MetricCard key={a.def.key} a={a} plan={plan} />)
+        {shown.length ? shown.map(a => <MetricCard key={a.def.key} a={a} plan={plan} share={(deal.byMetric.find(m => m.key === a.def.key) || {}).share} />)
           : <div className="mcard wide">No metrics are being tracked in this group. Use Edit contract to switch some on.</div>}
       </div>
 
@@ -352,7 +425,9 @@ export default function ContractView(p) {
 
       <div className="notes">
         An estimate from New Relic usage events, not an invoice: credits, contract-specific allowances and rounding can differ. Data and CCU are monthly totals;
-        users are the monthly peak. Every minimum is monthly and is drawn from the calculated deal value for the whole month. "Projected" extends the average of the
+        users are the monthly peak. {plan === 'advantage'
+          ? 'Usage is valued at the plan rates and drawn from one shared budget per contract year.'
+          : 'Every minimum is monthly and is drawn from the calculated deal value for the whole month.'} "Projected" extends the average of the
         last three complete months. Months before the usage history starts show n/a until entered under Edit contract.
       </div>
     </div>

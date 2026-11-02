@@ -1,11 +1,13 @@
 // Contract maths (pure functions, no nr1 imports).
 //
-// Two buying plans with the same shape: a MONTHLY minimum commit per metric (metrics are not fungible), a deal value
-// CALCULATED from those minimums (sum of minimum x plan rate over the term, drawn down in full every month whether
-// or not it is used), and an optional prepaid TOP-UP amount that covers overage (usage above a minimum).
-//   volume  - overage is valued at the overage rate (defaults to the plan rate); once the top-up is used up,
-//             further overage is billed monthly at that rate.
-//   savings - overage is valued at the plan rate; once the top-up is used up, further overage is pay-as-you-go.
+// Three buying plans. Volume and Savings share a shape: a MONTHLY minimum commit per metric (metrics are not fungible),
+// a deal value CALCULATED from those minimums (sum of minimum x plan rate over the term, drawn down in full every month
+// whether or not it is used), and an optional prepaid TOP-UP amount that covers overage (usage above a minimum).
+//   volume    - overage is valued at the overage rate (defaults to the plan rate); once the top-up is used up,
+//               further overage is billed monthly at that rate.
+//   savings   - overage is valued at the plan rate; once the top-up is used up, further overage is pay-as-you-go.
+//   advantage - no minimums: one fungible budget per contract year, drawn down by usage valued at the plan rates.
+//               When the year's budget is used up, further usage is billed at the pay-as-you-go rate.
 //
 // Two kinds of metric:
 //   sum  - data (GB), Core CCU, Advanced CCU: consumed over the month
@@ -39,15 +41,17 @@ export function defaultConfig(now = new Date()) {
   const y = now.getUTCFullYear();
   return {
     name: 'Contract',
-    plan: 'volume', // 'volume' | 'savings'
+    plan: 'volume', // 'volume' | 'savings' | 'advantage'
     termStart: `${y}-01-01`,
     termEnd: `${y}-12-31`,
     basis: 'total', // 'total' = billable + free count towards the commit, 'billable' = billable only
     // commits = MONTHLY minimum per contract year (volume plan; users are a minimum number of users)
     metrics: Object.fromEntries(METRICS.map(m => [m.key, { enabled: m.group !== 'users' || m.key === 'users_core', commits: [] }])),
-    deal: { currency: 'USD', topUp: '' }, // the deal value itself is calculated; topUp = prepaid amount that covers overage
-    // plan = price per unit the minimums are valued at (savings overage too)
-    // over = volume plan overage rate (blank = same as plan)   payg = savings plan rate once the top-up is used up
+    // Volume / Savings: the deal value is calculated; topUp = prepaid amount that covers overage.
+    // Advantage: budgets = the budget for each contract year (a blank year keeps the previous one); rollover = unspent budget carries into the next year.
+    deal: { currency: 'USD', topUp: '', budgets: [], rollover: false },
+    // plan = price per unit the minimums are valued at (savings overage too; Advantage usage is valued at it)
+    // over = volume plan overage rate (blank = same as plan)   payg = savings / advantage rate once the top-up / budget is used up
     rates: Object.fromEntries(METRICS.map(m => [m.key, { plan: '', over: '', payg: '' }])),
     overrides: {} // { 'YYYY-MM': { data: 120, ... } } months older than the usage history
   };
@@ -227,6 +231,7 @@ export function groupRows(analysis, mode) {
  * @param actualsByMetric { metricKey: { 'YYYY-MM': units } }
  */
 export function analyzeDeal(cfg, months, actualsByMetric, now = new Date()) {
+  if (cfg.plan === 'advantage') return analyzeAdvantage(cfg, months, actualsByMetric, now);
   const { nowKey } = clock(now);
   const plan = cfg.plan === 'savings' ? 'savings' : 'volume';
   const tracked = METRICS.filter(m => cfg.metrics[m.key].enabled && rateOf(cfg, m.key, 'plan') > 0);
@@ -329,6 +334,118 @@ export function analyzeDeal(cfg, months, actualsByMetric, now = new Date()) {
     beyondToDate, beyondFactor, projectedBeyondValue, projectedBeyondCost: projectedBeyondValue * beyondFactor,
     billedToDate: plan === 'volume' ? minimumToDate + beyondToDate : null, // volume: minimums + overage the top-up did not cover
     elapsedPct: rows.length ? ((past.length + (cur ? 1 : 0)) / rows.length) * 100 : 0,
+    hasCommit: dealValue > 0
+  };
+}
+
+/**
+ * Advantage plan: one fungible budget per contract year, no minimums.
+ *  - Each month's usage is valued at the plan rates (all tracked metrics together) and drawn from the year's budget.
+ *  - A new contract year starts with that year's budget; unspent budget lapses unless cfg.deal.rollover is set.
+ *  - Usage beyond the budget is overage, billed at the pay-as-you-go rate (the plan rate when none is entered).
+ *  - Projection: later months continue at the average spend of the last three finished months.
+ * Rows carry: spend, poolLeft (budget left after the month), over (spend beyond the budget, at plan rates),
+ * overBilled (that overage at the PAYG rates), lapsed (budget left unspent at the end of a finished year).
+ */
+function analyzeAdvantage(cfg, months, actualsByMetric, now) {
+  const { nowKey, dayFrac } = clock(now);
+  const tracked = METRICS.filter(m => cfg.metrics[m.key].enabled && rateOf(cfg, m.key, 'plan') > 0);
+  const missingRates = METRICS.filter(m => cfg.metrics[m.key].enabled && rateOf(cfg, m.key, 'plan') === 0).map(m => m.key);
+  const budgets = (cfg.deal && cfg.deal.budgets) || [];
+  const rollover = !!(cfg.deal && cfg.deal.rollover);
+  const years = Math.max(1, Math.ceil(months.length / 12));
+  const budgetOf = cy => commitFor(budgets, cy);
+  const paygOf = k => rateOf(cfg, k, 'payg') || rateOf(cfg, k, 'plan');
+
+  const rows = months.map(mo => {
+    const state = STATE(mo.key, nowKey);
+    const bySpend = {};
+    let spendPayg = 0;
+    tracked.forEach(m => {
+      const u = actualsByMetric[m.key] && actualsByMetric[m.key][mo.key];
+      if (state === 'future' || u === undefined) return;
+      bySpend[m.key] = u * rateOf(cfg, m.key, 'plan');
+      spendPayg += u * paygOf(m.key);
+    });
+    const spend = state === 'future' || !Object.keys(bySpend).length ? null : Object.values(bySpend).reduce((a, b) => a + b, 0);
+    return { ...mo, state, spend, bySpend, paygFactor: spend > 0 ? spendPayg / spend : 1, budget: budgetOf(mo.cy) };
+  });
+
+  const dealValue = Array.from({ length: years }, (_, i) => budgetOf(i + 1)).reduce((a, b) => a + b, 0);
+  const finished = rows.filter(r => r.state === 'past' && r.spend !== null);
+  const cur = rows.find(r => r.state === 'current');
+  const completeVals = finished.slice(-3).map(r => r.spend);
+  let runSpend = avg(completeVals);
+  if (!completeVals.length && cur && cur.spend !== null && dayFrac > 0.05) runSpend = cur.spend / dayFrac;
+
+  // pass 1: actuals only
+  let pool = 0;
+  rows.forEach((r, i) => {
+    if (r.idx % 12 === 0) pool = r.budget + (rollover && r.idx > 0 ? pool : 0);
+    if (r.state === 'future') { r.poolLeft = null; r.over = 0; r.overBilled = 0; r.lapsed = 0; return; }
+    const used = r.spend || 0;
+    r.over = Math.max(0, used - pool);
+    r.overBilled = r.over * r.paygFactor;
+    pool = Math.max(0, pool - used);
+    r.poolLeft = pool;
+    const yearEnd = r.idx % 12 === 11 || i === rows.length - 1;
+    r.lapsed = r.state === 'past' && yearEnd && (!rollover || i === rows.length - 1) ? pool : 0;
+  });
+
+  // pass 2: the same walk with future months (and the rest of this one) at the run-rate
+  let p2 = 0;
+  let projectedOver = 0;
+  const depletions = [];
+  const seenYear = {};
+  rows.forEach(r => {
+    if (r.idx % 12 === 0) p2 = r.budget + (rollover && r.idx > 0 ? p2 : 0);
+    const s = r.state === 'future' ? runSpend : r.state === 'current' ? Math.max(r.spend || 0, runSpend) : (r.spend || 0);
+    if (!seenYear[r.cy] && s > 0 && s >= p2) {
+      seenYear[r.cy] = true;
+      const frac = Math.min(1, p2 / s);
+      depletions.push({ cy: r.cy, key: r.key, actual: r.state === 'past', date: new Date(Date.UTC(r.y, r.m - 1, 1) + frac * daysInMonth(r.y, r.m) * 86400000) });
+    }
+    projectedOver += Math.max(0, s - p2);
+    p2 = Math.max(0, p2 - s);
+  });
+
+  const spendToDate = rows.reduce((a, r) => a + (r.spend || 0), 0);
+  const overToDate = rows.reduce((a, r) => a + r.over, 0);
+  const overBilledToDate = rows.reduce((a, r) => a + r.overBilled, 0);
+  const beyondFactor = overToDate > 0 ? overBilledToDate / overToDate : (finished.length ? avg(finished.slice(-3).map(r => r.paygFactor)) : 1);
+  const unusedToDate = rows.reduce((a, r) => a + r.lapsed, 0);
+  const lastDone = [...rows].reverse().find(r => r.state !== 'future');
+  const budgetedToDate = rows.filter(r => r.state !== 'future' && r.idx % 12 === 0).reduce((a, r) => a + r.budget, 0);
+
+  let status = 'ontrack';
+  if (!tracked.length) status = rows.some(r => r.budget > 0) && METRICS.some(m => cfg.metrics[m.key].enabled) ? 'norates' : 'nocommit';
+  else if (dealValue <= 0) status = 'nocommit';
+  else if (overToDate > 0) status = 'depleted';
+  else if (projectedOver > 0) status = 'depletes';
+  else if (unusedToDate > 0.1 * Math.max(1, budgetedToDate)) status = 'under';
+
+  const byMetric = tracked.map(m => {
+    const units = Object.values(actualsByMetric[m.key] || {}).reduce((x, y) => x + y, 0);
+    return { key: m.key, units, spend: units * rateOf(cfg, m.key, 'plan') };
+  });
+  const totalSpend = byMetric.reduce((a, m) => a + m.spend, 0);
+  byMetric.forEach(m => { m.share = totalSpend > 0 ? (m.spend / totalSpend) * 100 : 0; });
+
+  return {
+    plan: 'advantage', currency: (cfg.deal && cfg.deal.currency) || 'USD', rows, byMetric, tracked, missingRates, status, rollover,
+    dealValue, spendToDate, dealLeft: dealValue - spendToDate, dealPct: dealValue > 0 ? (spendToDate / dealValue) * 100 : null,
+    unusedToDate, overToDate, overBilledToDate, beyondFactor,
+    projectedOver, projectedOverCost: projectedOver * beyondFactor, runSpend, depletions,
+    yearElapsedPct: (() => {
+      if (!lastDone) return 0;
+      const inYear = rows.filter(r => r.cy === lastDone.cy);
+      return (inYear.filter(r => r.state !== 'future').length / inYear.length) * 100;
+    })(),
+    budgetNow: lastDone ? lastDone.budget : budgetOf(1), poolNow: lastDone ? lastDone.poolLeft : null,
+    poolNowPct: lastDone && lastDone.budget > 0 ? (lastDone.poolLeft / lastDone.budget) * 100 : null,
+    // legacy fields the Volume / Savings cards use
+    topUp: 0, minimumToDate: spendToDate, usageSpend: spendToDate, billedToDate: null, beyondToDate: overBilledToDate, projectedBeyondCost: projectedOver * beyondFactor,
+    elapsedPct: rows.length ? ((rows.filter(r => r.state === 'past').length + (cur ? 1 : 0)) / rows.length) * 100 : 0,
     hasCommit: dealValue > 0
   };
 }
