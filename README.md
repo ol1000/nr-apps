@@ -7,7 +7,7 @@ New Relic apps and nerdpacks for compute (CCU) and ingest cost visibility.
 | `apps/ccu-tracker` | Zero-dependency local web app: per-user CCU/aCCU usage, budgets, month-end pace |
 | `nerdpacks/ccu-tracker` | Nerdpack version of the CCU tracker |
 | `nerdpacks/cicd-optimization` | CI/CD explorer nerdlet |
-| `nerdpacks/contract-consumption` | Contract consumption vs. plan |
+| `nerdpacks/contract-consumption` | Contract consumption vs. plan (Volume, Savings, Advantage). Full setup: [INSTALL.md](nerdpacks/contract-consumption/INSTALL.md) |
 | `nerdpacks/dashboard-optimizer` | Dashboard query cost linting and rewrites |
 | `nerdpacks/ingest-monitor` | Ingest monitor |
 
